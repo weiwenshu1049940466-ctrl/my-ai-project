@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teachable Machine 图像识别项目</title>
+    
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 50px;
+            margin: 0;
+        }
+
+        h1 {
+            color: #1a73e8;
+            margin-bottom: 20px;
+        }
+
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        button {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-bottom: 20px;
+        }
+
+        button:hover {
+            background-color: #1557b0;
+        }
+
+        #webcam-container {
+            margin: 0 auto 20px auto;
+            border: 4px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+            display: inline-block;
+            background-color: #000;
+        }
+
+        #label-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        #label-container div {
+            background-color: #f8f9fa;
+            border: 1px solid #dadce0;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 18px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>我的 AI 图像识别</h1>
+        <p>点击下方按钮启动摄像头并加载模型</p>
+        <button type="button" onclick="init()">开启摄像头并识别</button>
+        <div id="webcam-container"></div>
+        <div id="label-container"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+    <script type="text/javascript">
+        // ==========================================
+        // 在这里设置你的 Teachable Machine 模型链接
+        // ==========================================
+        const URL = "https://teachablemachine.withgoogle.com/models/K_SkNjmy1/";
+
+        let model, webcam, labelContainer, maxPredictions;
+
+        // 初始化函数：加载模型并设置摄像头
+        async function init() {
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            try {
+                // 加载模型和元数据
+                model = await tmImage.load(modelURL, metadataURL);
+                maxPredictions = model.getTotalClasses();
+
+                // 设置摄像头
+                const flip = true; // 是否水平翻转摄像头
+                webcam = new tmImage.Webcam(300, 300, flip); // 宽度, 高度, 翻转
+                await webcam.setup(); // 请求摄像头权限
+                await webcam.play();  // 播放摄像头画面
+                window.requestAnimationFrame(loop); // 开始循环预测
+
+                // 将摄像头画布添加到页面中
+                document.getElementById("webcam-container").appendChild(webcam.canvas);
+                
+                // 准备标签容器
+                labelContainer = document.getElementById("label-container");
+                labelContainer.innerHTML = ''; // 清空之前的标签
+                for (let i = 0; i < maxPredictions; i++) {
+                    labelContainer.appendChild(document.createElement("div"));
+                }
+            } catch (error) {
+                alert("加载模型或访问摄像头失败，请确保允许浏览器使用摄像头，并在本地服务器环境中运行。");
+                console.error(error);
+            }
+        }
+
+        // 持续更新摄像头帧并进行预测
+        async function loop() {
+            webcam.update(); 
+            await predict();
+            window.requestAnimationFrame(loop);
+        }
+
+        // 运行模型预测并更新页面文本
+        async function predict() {
+            const prediction = await model.predict(webcam.canvas);
+            for (let i = 0; i < maxPredictions; i++) {
+                // 获取类别名称和对应的概率（转换为百分比格式）
+                const className = prediction[i].className;
+                const probability = (prediction[i].probability * 100).toFixed(1) + "%";
+                
+                // 更新页面显示
+                labelContainer.childNodes[i].innerHTML = `<span>${className}</span> <span>${probability}</span>`;
+            }
+        }
+    </script>
+</body>
+</html>
